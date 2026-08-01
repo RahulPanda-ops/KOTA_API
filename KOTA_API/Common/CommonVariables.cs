@@ -13,6 +13,7 @@ namespace KOTA_API.Common
         public static string ConnectionString { get; set; }
         public static string VIDS_API_KEY { get; set; }
         public static string VIDS_API_URL { get; set; }
+        public static string Http_URL { get; set; }
 
         public static string CompanyName { get; set; }
         public static string AboutCompany { get; set; }

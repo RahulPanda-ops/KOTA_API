@@ -110,7 +110,7 @@ namespace KOTA_API.Common
             }
             catch (Exception ex)
             {
-                Log.Write("Exception in GetEvents : " + ex.Message, Log.ErrorLogModule.ERS);
+                Log.Write("Exception in GetEvents : " + ex.Message, Log.ErrorLogModule.VIDS);
             }
 
             return events;
@@ -177,7 +177,7 @@ namespace KOTA_API.Common
             catch (Exception ex)
             {
                 Log.Write("Exception in ConvertDataTableToCollectionOC : " + ex.Message,
-                    Log.ErrorLogModule.ERS);
+                    Log.ErrorLogModule.VIDS);
             }
 
             return events;

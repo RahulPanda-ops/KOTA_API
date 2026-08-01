@@ -32,7 +32,9 @@ namespace KOTA_API
         {
             CommonVariables.ConnectionString = _configuration["PostgresqlConn"];
             CommonVariables.VIDS_API_KEY = _configuration["VIDS_API_KEY"];
-            CommonVariables.VIDS_API_URL = _configuration["VIDS_API_URL"]; 
+            CommonVariables.VIDS_API_URL = _configuration["VIDS_API_URL"];
+            CommonVariables.Http_URL = _configuration["Http_URL"];
+            CommonVariables.DriveName = _configuration["DriveName"];
             VIDSEventService();
             //while (!stoppingToken.IsCancellationRequested)
             //{
@@ -43,120 +45,139 @@ namespace KOTA_API
             //    await Task.Delay(1000, stoppingToken);
             //}
         }
+        private bool _isVIDSEventInProgress = true;
+
         private async Task VIDSEventService()
         {
-            try
+            while (true)
             {
-                VIDS_API_DLL vIDS_API_DLL = new VIDS_API_DLL();
-
-                ObservableCollection<VIDSEntity> events = vIDS_API_DLL.GetVIDSEvents();
-
-                if (events == null || events.Count == 0)
-                    return;
-
-                using (HttpClient client = new HttpClient())
+                try
                 {
-                    client.Timeout = TimeSpan.FromSeconds(30);
-
-                    foreach (var item in events)
+                    if (_isVIDSEventInProgress)
                     {
-                        try
+                        _isVIDSEventInProgress = false;
+                        VIDS_API_DLL vIDS_API_DLL = new VIDS_API_DLL();
+
+                        ObservableCollection<VIDSEntity> events = vIDS_API_DLL.GetVIDSEvents();
+
+                        if (events == null || events.Count == 0)
+                            return;
+
+                        using (HttpClient client = new HttpClient())
                         {
-                            VIDSEntity request = new VIDSEntity
+                            client.Timeout = TimeSpan.FromSeconds(30);
+
+                            foreach (var item in events)
                             {
-                                incedent_id = item.incedent_id,
-                                CType = item.CType,
-                                Location = item.Location,
-                                Lane = item.Lane,
-                                DateTime = item.DateTime,
-                                FullImage = "http://server/" + item.FullImage,
-                                VideoUrl = "http://server/" + item.VideoUrl,
-                                Category = item.Category,
-                                IpAddressCam = item.IpAddressCam,
-                                IpAddressSystem = item.IpAddressSystem,
-                                EventName = item.EventName,
-                                GeneratedBy = item.GeneratedBy,
-                                Latitude = item.Latitude,
-                                Longitude = item.Longitude,
-                                PackageNumber = item.PackageNumber
-                            };
+                                try
+                                {
+                                    VIDSEntity request = new VIDSEntity
+                                    {
+                                        incedent_id = item.incedent_id,
+                                        CType = item.CType,
+                                        Location = item.Location,
+                                        Lane = item.Lane,
+                                        DateTime = item.DateTime,
+                                        FullImage = CommonVariables.Http_URL + item.FullImage,
+                                        VideoUrl = CommonVariables.Http_URL + item.VideoUrl,
+                                        Category = item.Category,
+                                        IpAddressCam = item.IpAddressCam,
+                                        IpAddressSystem = item.IpAddressSystem,
+                                        EventName = item.EventName,
+                                        GeneratedBy = item.GeneratedBy,
+                                        Latitude = item.Latitude,
+                                        Longitude = item.Longitude,
+                                        PackageNumber = item.PackageNumber
+                                    };
 
-                            List<VIDSEntity> requestList = new List<VIDSEntity>();
-                            requestList.Add(request);
+                                    List<VIDSEntity> requestList = new List<VIDSEntity>();
+                                    requestList.Add(request);
 
-                            string json = JsonConvert.SerializeObject(requestList, Newtonsoft.Json.Formatting.Indented);
+                                    string json = JsonConvert.SerializeObject(requestList, Newtonsoft.Json.Formatting.Indented);
 
-                            Log.Write("Request JSON : " + json, Log.ErrorLogModule.ERS);
+                                    Log.Write("Request JSON : " + json, Log.ErrorLogModule.VIDS);
 
-                            client.DefaultRequestHeaders.Clear();
+                                    client.DefaultRequestHeaders.Clear();
 
-                            client.DefaultRequestHeaders.Accept.Add(
-                                new MediaTypeWithQualityHeaderValue("application/json"));
+                                    client.DefaultRequestHeaders.Accept.Add(
+                                        new MediaTypeWithQualityHeaderValue("application/json"));
 
-                            client.DefaultRequestHeaders.Add(
-                                "x-api-key",
-                                CommonVariables.VIDS_API_KEY);
-
-
+                                    client.DefaultRequestHeaders.Add(
+                                        "x-api-key",
+                                        CommonVariables.VIDS_API_KEY);
 
 
-                            StringContent content = new StringContent(
-                                json,
-                                Encoding.UTF8,
-                                "application/json");
 
-                            HttpResponseMessage response = await client.PostAsync(CommonVariables.VIDS_API_URL,content);
 
-                            string responseBody =
-                                await response.Content.ReadAsStringAsync();
+                                    StringContent content = new StringContent(
+                                        json,
+                                        Encoding.UTF8,
+                                        "application/json");
 
-                            Log.Write("Response : " + responseBody,
-                                Log.ErrorLogModule.ERS);
+                                    HttpResponseMessage response = await client.PostAsync(CommonVariables.VIDS_API_URL, content);
 
-                            if (response.IsSuccessStatusCode)
-                            {
-                                Log.Write("Incident Sent Successfully : "
-                                    + item.incedent_id,
-                                    Log.ErrorLogModule.ERS);
+                                    string responseBody =
+                                        await response.Content.ReadAsStringAsync();
 
-                                VIDSEntity vIDSEntity = JsonConvert.DeserializeObject<VIDSEntity>(responseBody);
-                                //EntryTransactionEntity sendEntry = JsonConvert.DeserializeObject<EntryTransactionEntity>(responseBody);
+                                    Log.Write("Response : " + responseBody,
+                                        Log.ErrorLogModule.VIDS);
 
-                                string outputmsg2 = string.Empty;
-                                vIDSEntity.incedent_id = request.incedent_id;
-                                vIDSEntity.Success = vIDSEntity.Success;
-                                vIDSEntity.ErrorCode = vIDSEntity.ErrorCode;
-                                vIDSEntity.Message = vIDSEntity.Message;
-                                outputmsg2 = Convert.ToString(vIDS_API_DLL.InsertVIDSEvents(vIDSEntity, 2));
-                                // Update database here if required
+                                    if (response.IsSuccessStatusCode)
+                                    {
+                                        Log.Write("Incident Sent Successfully : "
+                                            + item.incedent_id,
+                                            Log.ErrorLogModule.VIDS);
+
+                                        VIDSEntity vIDSEntity = JsonConvert.DeserializeObject<VIDSEntity>(responseBody);
+                                        //EntryTransactionEntity sendEntry = JsonConvert.DeserializeObject<EntryTransactionEntity>(responseBody);
+
+                                        string outputmsg2 = string.Empty;
+                                        vIDSEntity.incedent_id = request.incedent_id;
+                                        vIDSEntity.Success = vIDSEntity.Success;
+                                        vIDSEntity.ErrorCode = vIDSEntity.ErrorCode;
+                                        vIDSEntity.Message = vIDSEntity.Message;
+                                        outputmsg2 = Convert.ToString(vIDS_API_DLL.InsertVIDSEvents(vIDSEntity, 2));
+
+                                        if (!outputmsg2.Contains("updated"))
+                                        {
+                                            Log.Write(vIDSEntity.incedent_id + ": Reuploaded Transaction", Log.ErrorLogModule.VIDS);
+                                            await Task.Delay(TimeSpan.FromMilliseconds(1000));
+                                            outputmsg2 = Convert.ToString(vIDS_API_DLL.InsertVIDSEvents(vIDSEntity, 2));
+                                            _isVIDSEventInProgress = true;
+                                        }
+                                        if (outputmsg2.Contains("updated"))
+                                        {
+                                            Log.Write("Data Updated Suceessfully", Log.ErrorLogModule.VIDS);
+                                            outputmsg2 = string.Empty;
+                                            _isVIDSEventInProgress = true;
+                                        }
+                                        // Update database here if required
+                                    }
+                                    else
+                                    {
+                                        _isVIDSEventInProgress = true;
+                                        Log.Write("Failed : " + response.StatusCode + " " + responseBody, Log.ErrorLogModule.VIDS);
+                                    }
+
+                                    await Task.Delay(250);
+                                }
+                                catch (Exception ex)
+                                {
+                                    _isVIDSEventInProgress = true;
+                                    Log.Write("Exception sending Incident " + item.incedent_id + " : " + ex.Message, Log.ErrorLogModule.VIDS);
+                                }
                             }
-                            else
-                            {
-                                Log.Write("Failed : "
-                                    + response.StatusCode
-                                    + " "
-                                    + responseBody,
-                                    Log.ErrorLogModule.ERS);
-                            }
-
-                            await Task.Delay(250);
-                        }
-                        catch (Exception ex)
-                        {
-                            Log.Write("Exception sending Incident "
-                                + item.incedent_id
-                                + " : "
-                                + ex.Message,
-                                Log.ErrorLogModule.ERS);
                         }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Exception in VIDSEventService : "
-                    + ex.Message,
-                    Log.ErrorLogModule.ERS);
+                catch (Exception ex)
+                {
+                    _isVIDSEventInProgress = true;
+                    Log.Write("Exception in VIDSEventService : "
+                        + ex.Message,
+                        Log.ErrorLogModule.VIDS);
+                }
+                await Task.Delay(TimeSpan.FromSeconds(1));
             }
         }
     }
