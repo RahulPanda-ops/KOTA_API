@@ -35,7 +35,7 @@ namespace KOTA_API
             CommonVariables.VIDS_API_URL = _configuration["VIDS_API_URL"];
             CommonVariables.Http_URL = _configuration["Http_URL"];
             CommonVariables.DriveName = _configuration["DriveName"];
-            VIDSEventService();
+            Task vidsevent = VIDSEventService();
             //while (!stoppingToken.IsCancellationRequested)
             //{
             //    if (_logger.IsEnabled(LogLevel.Information))
@@ -45,14 +45,17 @@ namespace KOTA_API
             //    await Task.Delay(1000, stoppingToken);
             //}
         }
+
         private bool _isVIDSEventInProgress = true;
 
         private async Task VIDSEventService()
         {
+            _logger.LogInformation("Vids Event Service Started: {time}", DateTimeOffset.Now);
             while (true)
             {
                 try
                 {
+                    await Task.Delay(TimeSpan.FromMilliseconds(3000));
                     if (_isVIDSEventInProgress)
                     {
                         _isVIDSEventInProgress = false;
@@ -61,7 +64,10 @@ namespace KOTA_API
                         ObservableCollection<VIDSEntity> events = vIDS_API_DLL.GetVIDSEvents();
 
                         if (events == null || events.Count == 0)
+                        {
+                            _isVIDSEventInProgress = true;
                             return;
+                        }
 
                         using (HttpClient client = new HttpClient())
                         {
@@ -95,24 +101,17 @@ namespace KOTA_API
 
                                     string json = JsonConvert.SerializeObject(requestList, Newtonsoft.Json.Formatting.Indented);
 
-                                    Log.Write("Request JSON : " + json, Log.ErrorLogModule.VIDS);
+                                    //Log.Write("Request JSON : " + json, Log.ErrorLogModule.VIDS);
+                                    _logger.LogInformation("Request JSON: {Json} Time: {Time}", json, DateTimeOffset.Now);
 
                                     client.DefaultRequestHeaders.Clear();
 
                                     client.DefaultRequestHeaders.Accept.Add(
                                         new MediaTypeWithQualityHeaderValue("application/json"));
 
-                                    client.DefaultRequestHeaders.Add(
-                                        "x-api-key",
-                                        CommonVariables.VIDS_API_KEY);
+                                    client.DefaultRequestHeaders.Add("x-api-key", CommonVariables.VIDS_API_KEY);
 
-
-
-
-                                    StringContent content = new StringContent(
-                                        json,
-                                        Encoding.UTF8,
-                                        "application/json");
+                                    StringContent content = new StringContent(json, Encoding.UTF8,"application/json");
 
                                     HttpResponseMessage response = await client.PostAsync(CommonVariables.VIDS_API_URL, content);
 
@@ -124,9 +123,7 @@ namespace KOTA_API
 
                                     if (response.IsSuccessStatusCode)
                                     {
-                                        Log.Write("Incident Sent Successfully : "
-                                            + item.incedent_id,
-                                            Log.ErrorLogModule.VIDS);
+                                        _logger.LogInformation("Incident Sent Successfully : {IncidentId}", item.incedent_id);
 
                                         VIDSEntity vIDSEntity = JsonConvert.DeserializeObject<VIDSEntity>(responseBody);
                                         //EntryTransactionEntity sendEntry = JsonConvert.DeserializeObject<EntryTransactionEntity>(responseBody);
@@ -140,14 +137,14 @@ namespace KOTA_API
 
                                         if (!outputmsg2.Contains("updated"))
                                         {
-                                            Log.Write(vIDSEntity.incedent_id + ": Reuploaded Transaction", Log.ErrorLogModule.VIDS);
+                                            _logger.LogWarning("Incident {IncidentId} failed to upload", vIDSEntity.incedent_id);
                                             await Task.Delay(TimeSpan.FromMilliseconds(1000));
                                             outputmsg2 = Convert.ToString(vIDS_API_DLL.InsertVIDSEvents(vIDSEntity, 2));
                                             _isVIDSEventInProgress = true;
                                         }
                                         if (outputmsg2.Contains("updated"))
                                         {
-                                            Log.Write("Data Updated Suceessfully", Log.ErrorLogModule.VIDS);
+                                            _logger.LogInformation("Data Updated Successfully", Log.ErrorLogModule.VIDS);
                                             outputmsg2 = string.Empty;
                                             _isVIDSEventInProgress = true;
                                         }
@@ -156,7 +153,7 @@ namespace KOTA_API
                                     else
                                     {
                                         _isVIDSEventInProgress = true;
-                                        Log.Write("Failed : " + response.StatusCode + " " + responseBody, Log.ErrorLogModule.VIDS);
+                                        _logger.LogError("Failed : {StatusCode} {ResponseBody}", response.StatusCode, responseBody);
                                     }
 
                                     await Task.Delay(250);
@@ -164,7 +161,7 @@ namespace KOTA_API
                                 catch (Exception ex)
                                 {
                                     _isVIDSEventInProgress = true;
-                                    Log.Write("Exception sending Incident " + item.incedent_id + " : " + ex.Message, Log.ErrorLogModule.VIDS);
+                                    _logger.LogError("Exception sending Incident {IncidentId} : {ErrorMessage}", item.incedent_id, ex.Message);
                                 }
                             }
                         }
@@ -173,11 +170,9 @@ namespace KOTA_API
                 catch (Exception ex)
                 {
                     _isVIDSEventInProgress = true;
-                    Log.Write("Exception in VIDSEventService : "
-                        + ex.Message,
-                        Log.ErrorLogModule.VIDS);
+                    _logger.LogError("Exception in VIDSEventService : {ErrorMessage}", ex.Message);
                 }
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                await Task.Delay(TimeSpan.FromSeconds(5));
             }
         }
     }

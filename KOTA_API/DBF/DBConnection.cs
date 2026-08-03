@@ -19,7 +19,7 @@ namespace KOTA_API.DBF
             catch (Exception ex)
             {
                 Connectionstr = ex.Message;
-                Log.Write(ex.Message, Log.ErrorLogModule.DatabaseConnectrion);
+                Serilog.Log.Logger.Error("Database connection error: {errorMessage}", ex.Message);
             }
 
             return Connectionstr;

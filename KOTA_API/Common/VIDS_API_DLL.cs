@@ -79,7 +79,7 @@ namespace KOTA_API.Common
             }
             catch (Exception ex)
             {
-                Log.Write("Exception in InsertVIDSEvents : " + ex.ToString(), Log.ErrorLogModule.City);
+                Serilog.Log.Logger.Error("Exception in InsertVIDSEvents : {errorMessage}", ex.Message);
                 return ex.Message;
             }
         }
@@ -110,7 +110,7 @@ namespace KOTA_API.Common
             }
             catch (Exception ex)
             {
-                Log.Write("Exception in GetEvents : " + ex.Message, Log.ErrorLogModule.VIDS);
+                Serilog.Log.Logger.Error("Exception in GetEvents : {errorMessage}", ex.Message);
             }
 
             return events;
@@ -176,8 +176,7 @@ namespace KOTA_API.Common
             }
             catch (Exception ex)
             {
-                Log.Write("Exception in ConvertDataTableToCollectionOC : " + ex.Message,
-                    Log.ErrorLogModule.VIDS);
+                Serilog.Log.Logger.Error("Exception in ConvertDataTableToCollectionOC : {errorMessage}", ex.Message);
             }
 
             return events;
