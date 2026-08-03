@@ -35,7 +35,7 @@ namespace KOTA_API
             CommonVariables.VIDS_API_URL = _configuration["VIDS_API_URL"];
             CommonVariables.Http_URL = _configuration["Http_URL"];
             CommonVariables.DriveName = _configuration["DriveName"];
-            Task vidsevent = VIDSEventService();
+            Task.Run(() => VIDSEventService());
             //while (!stoppingToken.IsCancellationRequested)
             //{
             //    if (_logger.IsEnabled(LogLevel.Information))
@@ -66,7 +66,8 @@ namespace KOTA_API
                         if (events == null || events.Count == 0)
                         {
                             _isVIDSEventInProgress = true;
-                            return;
+                            await Task.Delay(5000);
+                            continue;
                         }
 
                         using (HttpClient client = new HttpClient())
@@ -115,11 +116,9 @@ namespace KOTA_API
 
                                     HttpResponseMessage response = await client.PostAsync(CommonVariables.VIDS_API_URL, content);
 
-                                    string responseBody =
-                                        await response.Content.ReadAsStringAsync();
+                                    string responseBody = await response.Content.ReadAsStringAsync();
 
-                                    Log.Write("Response : " + responseBody,
-                                        Log.ErrorLogModule.VIDS);
+                                    _logger.LogInformation("Response : {ResponseBody}", request.incedent_id + " :::: " + responseBody);
 
                                     if (response.IsSuccessStatusCode)
                                     {
